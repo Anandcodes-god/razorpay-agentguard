@@ -1,0 +1,21 @@
+# Environment
+.env
+*.env
+!.env.example
+
+# Python
+venv/
+__pycache__/
+*.pyc
+
+# Database
+*.db
+*.sqlite3
+
+# Node
+node_modules/
+dist/
+
+# Editor/OS
+.vscode/
+.DS_Store
