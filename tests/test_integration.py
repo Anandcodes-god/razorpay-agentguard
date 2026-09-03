@@ -6,16 +6,28 @@ from backend.database import create_tables
 from backend.config import settings
 
 @pytest.mark.asyncio
+async def test_simulation_requires_admin_key():
+    settings.admin_api_key = "test-admin-key"
+    transport = ASGITransport(app=app)
+
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.post("/api/simulate/run?scenario_id=1")
+
+    assert response.status_code == 401
+
+
+@pytest.mark.asyncio
 async def test_all_scenarios_match():
     # Ensure tables exist
     settings.debug = True
+    settings.admin_api_key = "test-admin-key"
     await create_tables()
     
     # Setup transport
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         # Seed the DB first
-        headers = {"X-API-Key": "dev-secret"}
+        headers = {"X-API-Key": "test-admin-key"}
         seed_res = await client.post("/api/seed", headers=headers)
         assert seed_res.status_code == 200
 

@@ -19,15 +19,14 @@ app = FastAPI(
 )
 
 # CORS middleware for development
-from fastapi import Request, HTTPException
+from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import JSONResponse
 from backend.config import settings
 
-ADMIN_KEY = settings.admin_api_key
 PUBLIC_PATHS = {
     "/api/dashboard/stats",
     "/api/dashboard/agents",
-    "/api/simulate/run",
     "/api/seed",
 }
 
@@ -35,9 +34,15 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         if request.url.path.startswith("/api/") and request.url.path not in PUBLIC_PATHS and request.url.path != "/api/assess":
             if request.method != "OPTIONS":
+                admin_key = settings.admin_api_key
+                if not admin_key:
+                    return JSONResponse(
+                        status_code=503,
+                        content={"detail": "Admin API key is not configured"},
+                    )
                 key = request.headers.get("X-API-Key")
-                if key != ADMIN_KEY:
-                    raise HTTPException(status_code=401, detail="Unauthorized")
+                if key != admin_key:
+                    return JSONResponse(status_code=401, content={"detail": "Unauthorized"})
         return await call_next(request)
 
 app.add_middleware(APIKeyMiddleware)
