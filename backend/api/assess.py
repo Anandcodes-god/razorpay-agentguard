@@ -179,13 +179,16 @@ async def assess_transaction(
     
     if decision == "ALLOW":
         from backend.services.razorpay_client import get_razorpay_service
-        from datetime import datetime
-        rzp = get_razorpay_service()
-        order_res = rzp.create_order(
-            amount=transaction.amount,
-            currency=transaction.currency,
-            notes={"agent_id": transaction.agent_id, "merchant": transaction.merchant_name}
-        )
+        from datetime import datetime, timezone
+        try:
+            rzp = get_razorpay_service()
+            order_res = rzp.create_order(
+                amount=transaction.amount,
+                currency=transaction.currency,
+                notes={"agent_id": transaction.agent_id, "merchant": transaction.merchant_name}
+            )
+        except Exception as exc:
+            order_res = {"error": str(exc)}
         if "error" not in order_res:
             transaction.razorpay_order_id = order_res.get("id")
             step = len(timeline) + 1
@@ -205,7 +208,7 @@ async def assess_transaction(
                 "title": "Razorpay Order Created",
                 "detail": f"Real API hit! Order ID: {transaction.razorpay_order_id}",
                 "severity": "info",
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": datetime.now(timezone.utc).isoformat()
             })
             
     await db.commit()

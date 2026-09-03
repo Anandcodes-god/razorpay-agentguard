@@ -70,16 +70,17 @@ class PolicyGate:
             else:
                 result.checks_passed.append(func.__name__)
                 
-        # Run REVIEW checks
-        for flag_name, func, args in review_checks:
-            passed, severity, message = func(*args)
-            if not passed:
-                has_review = True
-                result.checks_failed.append(func.__name__)
-                result.reasons.append(message)
-                result.flags[flag_name] = True
-            else:
-                result.checks_passed.append(func.__name__)
+        # Review signals are only useful when the transaction is otherwise eligible.
+        if not has_block:
+            for flag_name, func, args in review_checks:
+                passed, severity, message = func(*args)
+                if not passed:
+                    has_review = True
+                    result.checks_failed.append(func.__name__)
+                    result.reasons.append(message)
+                    result.flags[flag_name] = True
+                else:
+                    result.checks_passed.append(func.__name__)
 
         # Determine final decision
         if has_block:

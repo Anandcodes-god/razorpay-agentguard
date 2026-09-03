@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Activity, ShieldAlert, History, Shield, Zap } from "lucide-react";
+import { Activity, History, Shield, Zap } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Dashboard from "./Dashboard";
 import Simulator from "./Simulator";

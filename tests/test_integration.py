@@ -13,11 +13,12 @@ async def test_all_scenarios_match():
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         # Seed the DB first
-        seed_res = await client.post("/api/seed")
+        headers = {"X-API-Key": "dev-secret"}
+        seed_res = await client.post("/api/seed", headers=headers)
         assert seed_res.status_code == 200
 
         # Run the scenarios
-        res = await client.post("/api/simulate/all", timeout=60.0)
+        res = await client.post("/api/simulate/all", headers=headers, timeout=60.0)
         assert res.status_code == 200
         
         data = res.json()

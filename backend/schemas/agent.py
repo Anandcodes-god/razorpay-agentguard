@@ -1,10 +1,17 @@
 from datetime import datetime
 from typing import Optional, Dict, Any
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, field_validator, Field
 
 class AgentCreate(BaseModel):
     name: str
     principal_id: str
+    
+    @field_validator('principal_id')
+    @classmethod
+    def principal_id_not_empty(cls, v):
+        if not v or not v.strip():
+            raise ValueError('principal_id cannot be empty')
+        return v
     scope: Optional[Dict[str, Any]] = None
     max_budget: Optional[int] = Field(default=None, gt=0)
     expires_at: Optional[datetime] = None
@@ -13,6 +20,13 @@ class AgentResponse(BaseModel):
     id: str
     name: str
     principal_id: str
+    
+    @field_validator('principal_id')
+    @classmethod
+    def principal_id_not_empty(cls, v):
+        if not v or not v.strip():
+            raise ValueError('principal_id cannot be empty')
+        return v
     api_key: str
     is_verified: bool
     scope: Optional[Dict[str, Any]] = None

@@ -14,7 +14,8 @@ SCENARIOS: List[Dict[str, Any]] = [
             'merchant_category': 'groceries',
             'amount': 145000,  # ₹1,450
             'currency': 'INR',
-            'description': 'Weekly grocery order'
+            'description': 'Weekly grocery order',
+            'created_at': '2024-01-15T10:30:00+05:30'
         }
     },
     {

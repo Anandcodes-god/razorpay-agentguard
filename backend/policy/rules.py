@@ -93,26 +93,31 @@ def check_velocity(transaction_history: Dict[str, Any]) -> Tuple[bool, str, str]
     recent_count = transaction_history.get("recent_count", 0)
     normal_rate = transaction_history.get("normal_hourly_rate", 0)
     
-    if normal_rate > 0 and recent_count >= 3 and recent_count > (3 * normal_rate):
+    if normal_rate > 0 and recent_count > (3 * normal_rate):
         return False, "review", f"High velocity: {recent_count} transactions in last hour (normal: {normal_rate}/hr)"
     return True, "info", "Transaction velocity is normal."
 
-def check_time_of_day(transaction: Dict[str, Any]) -> Tuple[bool, str, str]:
-    """REVIEW if transaction is outside 6am-11pm IST. transaction has 'created_at' datetime."""
+from datetime import timezone
+from zoneinfo import ZoneInfo
+
+IST = ZoneInfo("Asia/Kolkata")
+
+def check_time_of_day(transaction: dict):
     created_at = transaction.get("created_at")
-    
     if not created_at:
-        created_at_dt = datetime.now()
+        created_at_dt = datetime.now(IST)
     elif isinstance(created_at, str):
         try:
-            created_at_dt = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+            created_at_dt = datetime.fromisoformat(
+                created_at.replace("Z", "+00:00")
+            ).astimezone(IST)
         except (ValueError, TypeError):
-            created_at_dt = datetime.now()
+            created_at_dt = datetime.now(IST)
     else:
-        created_at_dt = created_at
-        
+        created_at_dt = (created_at.replace(tzinfo=timezone.utc)
+                         if created_at.tzinfo is None else created_at).astimezone(IST)
+    
     hour = created_at_dt.hour
     if hour < 6 or hour >= 23:
-        return False, "review", f"Transaction outside normal hours (6am-11pm): {created_at_dt.strftime('%H:%M')}"
-        
+        return False, "review", f"Transaction outside normal hours (6am-11pm IST): {created_at_dt.strftime('%H:%M IST')}"
     return True, "info", "Transaction within normal hours."

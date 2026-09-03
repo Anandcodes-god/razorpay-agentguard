@@ -1,0 +1,15 @@
+from backend.policy.engine import PolicyGate
+from backend.models.transaction import Transaction
+
+def test_policy_gate_block_overrides_review():
+    gate = PolicyGate()
+    result = gate.evaluate(
+        agent={"is_verified": False, "principal_id": "x", "expires_at": None},
+        transaction={"amount": 100, "merchant_category": "food", "created_at": "2024-01-15T10:00:00+05:30"},
+        intent_contract={"max_amount": 200, "allowed_categories": ["food"], "confirmation_threshold": None},
+        transaction_history=[]
+    )
+    # The agent is unverified, which is a BLOCK condition.
+    # The transaction amount is within limits, which is ALLOW/REVIEW.
+    # The BLOCK must win.
+    assert result.decision == "BLOCK"

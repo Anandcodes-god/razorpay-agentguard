@@ -4,14 +4,14 @@ from pydantic import BaseModel, ConfigDict, Field
 
 class IntentContractCreate(BaseModel):
     agent_id: str
-    raw_instruction: str = Field(max_length=2000)
+    raw_instruction: str = Field(..., max_length=500, description='Human payment instruction')
     max_amount: Optional[int] = Field(default=None, gt=0)
     expires_in_hours: int = Field(default=24, ge=1, le=8760)
 
 class IntentContractResponse(BaseModel):
     id: str
     agent_id: str
-    raw_instruction: str
+    raw_instruction: str = Field(..., max_length=500, description='Human payment instruction')
     purpose: Optional[str] = None
     categories: Optional[str] = None
     max_amount: int

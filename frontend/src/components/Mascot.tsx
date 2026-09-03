@@ -1,9 +1,8 @@
-import React, { useEffect, useState } from 'react';
-import { motion, useAnimation } from 'framer-motion';
+import { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
 
 export default function Mascot() {
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
-  const controls = useAnimation();
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {

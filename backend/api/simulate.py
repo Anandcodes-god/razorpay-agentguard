@@ -76,24 +76,27 @@ async def run_scenario(scenario_id: int, db: AsyncSession = Depends(get_db)):
     # If ALLOW, hit the real Razorpay API
     razorpay_order_id = None
     if decision == "ALLOW":
-        rzp = get_razorpay_service()
-        order_res = rzp.create_order(
-            amount=tx_data["amount"],
-            currency=tx_data.get("currency", "INR"),
-            notes={"agent_id": tx_data["agent_id"], "merchant": tx_data.get("merchant_name")}
-        )
-        if "error" not in order_res:
-            razorpay_order_id = order_res.get("id")
-            # Optionally add an audit log that the order was actually created
-            step = len(result.get("audit_timeline", [])) + 1
-            result.setdefault("audit_timeline", []).append({
-                "step_number": step,
-                "event_type": "action",
-                "title": "Razorpay Order Created",
-                "detail": f"Real API hit! Order ID: {razorpay_order_id}",
-                "severity": "info",
-                "timestamp": datetime.utcnow().isoformat()
-            })
+        try:
+            rzp = get_razorpay_service()
+            order_res = rzp.create_order(
+                amount=tx_data["amount"],
+                currency=tx_data.get("currency", "INR"),
+                notes={"agent_id": tx_data["agent_id"], "merchant": tx_data.get("merchant_name")}
+            )
+            razorpay_order_id = order_res.get("id") if "error" not in order_res else None
+            detail = (f"Real API hit! Order ID: {razorpay_order_id}"
+                      if razorpay_order_id else "Razorpay order skipped: credentials unavailable")
+        except Exception as exc:
+            detail = f"Razorpay order skipped: {exc}"
+        step = len(result.get("audit_timeline", [])) + 1
+        result.setdefault("audit_timeline", []).append({
+            "step_number": step,
+            "event_type": "action",
+            "title": "Razorpay Order Created" if razorpay_order_id else "Razorpay Order Skipped",
+            "detail": detail,
+            "severity": "info" if razorpay_order_id else "warning",
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        })
 
     tx = Transaction(
         id=tx_id,
@@ -106,7 +109,7 @@ async def run_scenario(scenario_id: int, db: AsyncSession = Depends(get_db)):
         currency=tx_data.get("currency", "INR"),
         description=tx_data.get("description"),
         status=decision.lower(),
-        created_at=datetime.fromisoformat(tx_data["created_at"]) if "created_at" in tx_data else datetime.utcnow()
+        created_at=datetime.fromisoformat(tx_data["created_at"]) if "created_at" in tx_data else datetime.now(timezone.utc)
     )
     db.add(tx)
 

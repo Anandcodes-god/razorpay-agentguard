@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
 from backend.database import create_tables
 
 @asynccontextmanager
@@ -18,9 +19,26 @@ app = FastAPI(
 )
 
 # CORS middleware for development
+import os
+from fastapi import Request, HTTPException
+from starlette.middleware.base import BaseHTTPMiddleware
+
+ADMIN_KEY = os.environ.get("ADMIN_API_KEY", "dev-secret")
+
+class APIKeyMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        if request.url.path.startswith("/api/"):
+            if request.method != "OPTIONS":
+                key = request.headers.get("X-API-Key")
+                if key != ADMIN_KEY:
+                    raise HTTPException(status_code=401, detail="Unauthorized")
+        return await call_next(request)
+
+app.add_middleware(APIKeyMiddleware)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins for dev
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],  # Allow all origins for dev
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

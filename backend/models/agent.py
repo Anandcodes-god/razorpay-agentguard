@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, List
 from sqlalchemy import String, Boolean, Integer, DateTime
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -15,8 +15,8 @@ class Agent(Base):
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False)
     scope: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     max_budget: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
     intent_contracts: Mapped[List["IntentContract"]] = relationship(back_populates="agent", cascade="all, delete-orphan")
     transactions: Mapped[List["Transaction"]] = relationship(back_populates="agent", cascade="all, delete-orphan")

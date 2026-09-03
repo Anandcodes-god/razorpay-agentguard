@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from sqlalchemy import String, Integer, DateTime, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -19,7 +19,7 @@ class Transaction(Base):
     currency: Mapped[str] = mapped_column(String, default="INR")
     description: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     status: Mapped[str] = mapped_column(String, default="pending")
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     agent: Mapped["Agent"] = relationship(back_populates="transactions")
     intent_contract: Mapped[Optional["IntentContract"]] = relationship(back_populates="transactions")

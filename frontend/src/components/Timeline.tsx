@@ -27,7 +27,7 @@ export default function Timeline({ items = [] }: { items: any[] }) {
             initial={{ opacity: 0, x: -10 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ type: "spring", stiffness: 300, damping: 20, delay: i * 0.1 }}
-            key={i} 
+            key={`${item.step_number}-${item.timestamp}`} 
             className="relative pl-10"
           >
             <div className={`absolute -left-[16px] top-4 w-8 h-8 rounded-full border flex items-center justify-center ${color} z-10`}>

@@ -33,7 +33,8 @@ venv\Scripts\activate
 pip install -r requirements.txt
 
 # 2. Setup Env
-# Copy .env.example to .env and fill in your Gemini API key and Razorpay keys
+# Copy .env.example to .env and fill in your Gemini API key and Razorpay keys.
+# Keep VITE_ADMIN_API_KEY aligned with ADMIN_API_KEY for frontend API requests.
 cp .env.example .env
 
 # 3. Start Backend

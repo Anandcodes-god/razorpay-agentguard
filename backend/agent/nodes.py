@@ -7,6 +7,7 @@ a partial state update. Audit timeline entries are appended to the state
 """
 import json
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 from backend.agent.state import AgentGuardState
 from backend.agent.tools import (
     get_agent_profile, get_intent_contract, check_intent_deviation,
@@ -15,6 +16,8 @@ from backend.agent.tools import (
 )
 from backend.agent.prompts import RISK_ANALYSIS_PROMPT
 from backend.policy.engine import PolicyGate
+
+IST = ZoneInfo("Asia/Kolkata")
 
 
 def _format_rupees(paise: int) -> str:
@@ -206,7 +209,7 @@ async def check_intent_node(state: AgentGuardState) -> dict:
 
     # Compute score: 100 = perfect match, 0 = max deviation
     dev_pct = deviation.get("amount_deviation_pct", 0)
-    dev_score = max(0, min(100, int(100 - dev_pct)))
+    dev_score = max(0, int(100 / (1 + dev_pct / 100)))
 
     return {
         "intent_contract": contract,
@@ -259,21 +262,24 @@ async def check_signals_node(state: AgentGuardState) -> dict:
 
     # Time-of-day check
     created_at = transaction.get("created_at")
-    if created_at:
-        if isinstance(created_at, str):
-            try:
-                dt = datetime.fromisoformat(created_at)
-            except ValueError:
-                dt = datetime.now(timezone.utc)
-        else:
-            dt = created_at
-        hour = dt.hour
-        if hour < 6 or hour >= 23:
-            timeline.append(_audit_entry(
-                step, "check", "Unusual transaction time",
-                f"Transaction at {dt.strftime('%H:%M')} (outside 6am-11pm window)",
-                "warning"
-            ))
+    if not created_at:
+        created_at_dt = datetime.now(IST)
+    elif isinstance(created_at, str):
+        try:
+            created_at_dt = datetime.fromisoformat(created_at.replace("Z", "+00:00")).astimezone(IST)
+        except (ValueError, TypeError):
+            created_at_dt = datetime.now(IST)
+    else:
+        created_at_dt = (created_at.replace(tzinfo=timezone.utc)
+                         if created_at.tzinfo is None else created_at).astimezone(IST)
+        
+    hour = created_at_dt.hour
+    if hour < 6 or hour >= 23:
+        timeline.append(_audit_entry(
+            step, "check", "Unusual transaction time",
+            f"Transaction at {created_at_dt.strftime('%H:%M IST')} (outside 6am-11pm window)",
+            "warning"
+        ))
 
     # Compute transaction risk score
     tx_risk_score = trust_score
