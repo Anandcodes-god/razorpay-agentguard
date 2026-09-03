@@ -45,6 +45,8 @@ After the UI incident was closed, a security review found several issues that co
 The follow-up fixes were verified with:
 
 ```text
+Fresh virtual environment: requirements.txt installed successfully
+Test tooling: pytest and pytest-asyncio
 10 passed
 Frontend production build passed
 Python compilation passed
