@@ -1,17 +1,50 @@
 @import "tailwindcss";
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap');
+
+@theme {
+  --color-neon-blue: #00f0ff;
+  --color-neon-green: #39ff14;
+  --color-neon-purple: #b026ff;
+  --color-dark-bg: #050505;
+  --color-panel-bg: rgba(20, 20, 20, 0.6);
+  --color-panel-border: rgba(255, 255, 255, 0.1);
+}
+
+@layer utilities {
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .glass-panel {
+    background: var(--color-panel-bg);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--color-panel-border);
+    border-radius: 16px;
+  }
+  
+  .neon-text-blue {
+    color: var(--color-neon-blue);
+    text-shadow: 0 0 10px rgba(0, 240, 255, 0.5), 0 0 20px rgba(0, 240, 255, 0.3);
+  }
+  
+  .neon-text-green {
+    color: var(--color-neon-green);
+    text-shadow: 0 0 10px rgba(57, 255, 20, 0.5), 0 0 20px rgba(57, 255, 20, 0.3);
+  }
+  
+  .flashlight-mask {
+    mask-image: radial-gradient(circle 250px at var(--mouse-x, 50%) var(--mouse-y, 50%), black 0%, transparent 100%);
+    -webkit-mask-image: radial-gradient(circle 250px at var(--mouse-x, 50%) var(--mouse-y, 50%), black 0%, transparent 100%);
+  }
+}
 
 body {
+  background-color: var(--color-dark-bg);
+  color: white;
   margin: 0;
-  background-color: #F4F4F0;
   font-family: 'Inter', system-ui, sans-serif;
-  color: #000000;
-}
-
-.scrollbar-hide::-webkit-scrollbar {
-  display: none;
-}
-.scrollbar-hide {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
+  overflow: hidden;
 }

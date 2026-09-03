@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Play, RotateCcw, AlertTriangle, CheckCircle, Info, ScanSearch } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Play, RotateCcw, AlertTriangle, CheckCircle, ArrowLeft, ScanSearch } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Timeline from "./Timeline";
 
@@ -11,137 +11,192 @@ const SCENARIOS = [
   { id: 5, name: "Velocity Spike", desc: "Agent suddenly makes 12 purchases." }
 ];
 
-export default function Simulator() {
-  const [running, setRunning] = useState(false);
-  const [result, setResult] = useState<any>(null);
-  const [activeScenario, setActiveScenario] = useState<number | null>(null);
+const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
 
-  const runScenario = async (id: number) => {
-    setActiveScenario(id);
-    setRunning(true);
+export default function Simulator() {
+  const [phase, setPhase] = useState<'idle' | 'processing' | 'result'>('idle');
+  const [result, setResult] = useState<any>(null);
+  const [activeScenario, setActiveScenario] = useState<any>(null);
+
+  const runScenario = async (scenario: any) => {
+    setActiveScenario(scenario);
+    setPhase('processing');
     setResult(null);
     try {
-      const res = await fetch(`http://127.0.0.1:8000/api/simulate/run?scenario_id=${id}`, { method: "POST" });
+      const res = await fetch(`${API_BASE}/api/simulate/run?scenario_id=${scenario.id}`, { method: "POST" });
       const data = await res.json();
       setResult(data);
+      // Fast transition to keep UI snappy
+      setTimeout(() => setPhase('result'), 300);
     } catch (e) {
       console.error(e);
-    } finally {
-      setRunning(false);
+      setPhase('idle');
     }
   };
 
   const seedDB = async () => {
-    await fetch(`http://127.0.0.1:8000/api/seed`, { method: "POST" });
+    await fetch(`${API_BASE}/api/seed`, { method: "POST" });
     alert("Database Seeded!");
   };
 
   return (
-    <div className="flex gap-8 h-full">
-      {/* Left panel: Scenarios */}
+    <div className="min-h-full w-full flex flex-col items-center relative py-12">
+      {/* Background ambient glow based on phase */}
       <motion.div 
-        initial={{ opacity: 0, x: -10 }}
-        animate={{ opacity: 1, x: 0 }}
-        className="w-1/3 bg-white p-6 border-4 border-black shadow-[8px_8px_0_0_rgba(0,0,0,1)] overflow-y-auto scrollbar-hide flex flex-col"
-      >
-        <div className="flex justify-between items-center mb-6 sticky top-0 bg-white pb-2 z-10 border-b-4 border-black">
-          <h3 className="font-black font-['Space_Grotesk'] text-2xl text-black uppercase tracking-tight">Scenarios</h3>
-          <button onClick={seedDB} className="p-2 border-2 border-black bg-[#FF90E8] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none shadow-[2px_2px_0_0_rgba(0,0,0,1)] transition-all tooltip" title="Reset DB">
-            <RotateCcw size={20} strokeWidth={2.5} />
-          </button>
-        </div>
-        
-        <div className="space-y-4 flex-1">
-          {SCENARIOS.map((s, i) => (
-            <motion.div 
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.05 }}
-              key={s.id} 
-              className={`p-4 border-4 border-black transition-all ${activeScenario === s.id ? 'bg-[#00E5FF] shadow-[4px_4px_0_0_rgba(0,0,0,1)] translate-x-[-2px] translate-y-[-2px]' : 'bg-[#F4F4F0] hover:bg-[#FFD600] hover:shadow-[4px_4px_0_0_rgba(0,0,0,1)] hover:translate-x-[-2px] hover:translate-y-[-2px]'}`}
-            >
-              <h4 className="font-black font-['Space_Grotesk'] text-lg text-black tracking-tight">{s.name}</h4>
-              <p className="text-sm text-black font-medium mt-1 mb-4">{s.desc}</p>
-              <button
-                disabled={running}
-                onClick={() => runScenario(s.id)}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-black text-white text-sm font-bold font-['Space_Grotesk'] tracking-widest uppercase border-2 border-black shadow-[4px_4px_0_0_rgba(255,255,255,1)] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none active:bg-[#FF4500] active:text-white transition-all disabled:opacity-50"
-              >
-                {running && activeScenario === s.id ? (
-                  <RotateCcw className="animate-spin" size={18} strokeWidth={3} />
-                ) : (
-                  <Play size={18} strokeWidth={3} />
-                )}
-                {running && activeScenario === s.id ? "Running" : "Execute"}
-              </button>
-            </motion.div>
-          ))}
-        </div>
-      </motion.div>
+        className="absolute inset-0 z-0 pointer-events-none opacity-20 transition-colors duration-1000"
+        animate={{
+          background: phase === 'idle' ? 'radial-gradient(circle at 50% 50%, rgba(0, 240, 255, 0.2) 0%, transparent 70%)' :
+                      phase === 'processing' ? 'radial-gradient(circle at 50% 50%, rgba(176, 38, 255, 0.4) 0%, transparent 50%)' :
+                      result?.actual_decision === 'ALLOW' ? 'radial-gradient(circle at 50% 50%, rgba(57, 255, 20, 0.3) 0%, transparent 80%)' :
+                      result?.actual_decision === 'REVIEW' ? 'radial-gradient(circle at 50% 50%, rgba(255, 234, 0, 0.3) 0%, transparent 80%)' :
+                      'radial-gradient(circle at 50% 50%, rgba(255, 0, 60, 0.3) 0%, transparent 80%)'
+        }}
+      />
 
-      {/* Right panel: Timeline & Results */}
-      <motion.div 
-        initial={{ opacity: 0, x: 10 }}
-        animate={{ opacity: 1, x: 0 }}
-        className="w-2/3 bg-white border-4 border-black shadow-[8px_8px_0_0_rgba(0,0,0,1)] flex flex-col overflow-hidden relative"
-      >
-        <AnimatePresence mode="wait">
-          {result ? (
+      <AnimatePresence mode="wait">
+        
+        {/* PHASE 1: IDLE / INTENT SELECTION */}
+        {phase === 'idle' && (
+          <motion.div 
+            key="idle"
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 1.1, filter: "blur(10px)" }}
+            transition={{ duration: 0.5 }}
+            className="w-full max-w-5xl z-10 mt-16"
+          >
+            <div className="text-center mb-12">
+              <h2 className="text-3xl font-light text-white/90 tracking-widest uppercase mb-4 shadow-[0_0_20px_rgba(0,240,255,0.3)]">Inject Scenario Intent</h2>
+              <p className="text-white/50 font-mono text-sm">Select a transaction payload to pipe into the AgentGuard Risk Engine.</p>
+              <button onClick={seedDB} className="mt-4 px-4 py-2 rounded-full border border-white/10 text-white/50 font-mono text-xs hover:bg-white/5 hover:text-white/90 transition-all">
+                <RotateCcw size={12} className="inline mr-2" />
+                RESET DATABASE STATE
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {SCENARIOS.map((s, i) => (
+                <motion.div 
+                  key={s.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.1 }}
+                  whileHover={{ scale: 1.05, borderColor: 'rgba(0, 240, 255, 0.5)', boxShadow: '0 0 20px rgba(0, 240, 255, 0.2)' }}
+                  onClick={() => runScenario(s)}
+                  className="glass-panel p-6 cursor-pointer border border-white/10 hover:bg-white/5 transition-all group flex flex-col items-center text-center"
+                >
+                  <div className="w-12 h-12 rounded-full border border-white/20 bg-white/5 flex items-center justify-center mb-4 group-hover:bg-[#00f0ff]/20 group-hover:text-[#00f0ff] transition-colors">
+                    <Play size={16} />
+                  </div>
+                  <h4 className="font-light text-lg text-white/90 tracking-widest uppercase mb-2">{s.name}</h4>
+                  <p className="text-xs text-white/50 font-mono">{s.desc}</p>
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+
+        {/* PHASE 2: PROCESSING (The GenUI Constructing Phase) */}
+        {phase === 'processing' && (
+          <motion.div 
+            key="processing"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0, scale: 0.5 }}
+            className="flex flex-col items-center justify-center z-10 mt-32"
+          >
+            {/* The Habit-Loop Spinner Morph */}
             <motion.div 
-              key="results"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="flex-1 overflow-y-auto scrollbar-hide flex flex-col"
+              layoutId="morph-orb"
+              animate={{ rotate: 360, scale: [1, 1.2, 1] }}
+              transition={{ rotate: { duration: 2, repeat: Infinity, ease: "linear" }, scale: { duration: 1, repeat: Infinity } }}
+              className="w-32 h-32 rounded-full border-t-2 border-l-2 border-[#b026ff] shadow-[0_0_50px_rgba(176,38,255,0.5)] flex items-center justify-center relative"
             >
-              <div className={`p-8 border-b-4 border-black ${
-                result.actual_decision === 'ALLOW' ? 'bg-[#4ADE80]' :
-                result.actual_decision === 'REVIEW' ? 'bg-[#FFD600]' :
-                'bg-[#FF4500]'
+              <div className="w-16 h-16 rounded-full bg-[#b026ff]/20 blur-md absolute animate-pulse"></div>
+              <ScanSearch size={32} className="text-[#b026ff]" />
+            </motion.div>
+            
+            <motion.h3 
+              animate={{ opacity: [0.5, 1, 0.5] }}
+              transition={{ duration: 1.5, repeat: Infinity }}
+              className="mt-8 text-xl font-mono tracking-widest text-[#b026ff] uppercase"
+            >
+              Constructing Assessment Pipeline...
+            </motion.h3>
+            <p className="mt-2 font-mono text-xs text-white/40">Evaluating intent for '{activeScenario?.name}'</p>
+          </motion.div>
+        )}
+
+        {/* PHASE 3: RESULT REVEAL (GenUI Explosion) */}
+        {phase === 'result' && result && (
+          <motion.div 
+            key="result"
+            initial={{ opacity: 0, height: 0, scale: 0.8 }}
+            animate={{ opacity: 1, height: 'auto', scale: 1 }}
+            className="w-full max-w-5xl z-10 flex flex-col relative"
+          >
+            <button onClick={() => setPhase('idle')} className="absolute -top-12 left-0 flex items-center gap-2 text-white/50 hover:text-white transition-colors font-mono text-xs uppercase tracking-widest">
+              <ArrowLeft size={14} /> Back to Intents
+            </button>
+            
+            <div className={`glass-panel overflow-hidden border ${
+                result.actual_decision === 'ALLOW' ? 'border-[#39ff14]/50 shadow-[0_0_40px_rgba(57,255,20,0.15)]' :
+                result.actual_decision === 'REVIEW' ? 'border-[#ffea00]/50 shadow-[0_0_40px_rgba(255,234,0,0.15)]' :
+                'border-[#ff003c]/50 shadow-[0_0_40px_rgba(255,0,60,0.15)]'
+              }`}
+            >
+              <div className={`p-8 border-b border-white/10 bg-gradient-to-br ${
+                result.actual_decision === 'ALLOW' ? 'from-[#39ff14]/20 to-transparent' :
+                result.actual_decision === 'REVIEW' ? 'from-[#ffea00]/20 to-transparent' :
+                'from-[#ff003c]/20 to-transparent'
               }`}>
                 <div className="flex items-center gap-6">
-                  <div className={`p-4 border-4 border-black bg-white shadow-[4px_4px_0_0_rgba(0,0,0,1)] ${
-                    result.actual_decision === 'ALLOW' ? 'text-black' :
-                    result.actual_decision === 'REVIEW' ? 'text-black' :
-                    'text-[#FF4500]'
-                  }`}>
-                    {result.actual_decision === 'ALLOW' && <CheckCircle size={40} strokeWidth={2.5} />}
-                    {result.actual_decision === 'REVIEW' && <AlertTriangle size={40} strokeWidth={2.5} />}
-                    {result.actual_decision === 'BLOCK' && <AlertTriangle size={40} strokeWidth={2.5} />}
-                  </div>
+                  {/* The Reward Burst */}
+                  <motion.div 
+                    initial={{ scale: 0, rotate: -180 }}
+                    animate={{ scale: 1, rotate: 0 }}
+                    transition={{ type: "spring", damping: 12 }}
+                    className={`p-6 rounded-full bg-black/60 border backdrop-blur-md ${
+                      result.actual_decision === 'ALLOW' ? 'text-[#39ff14] border-[#39ff14]/50 shadow-[0_0_30px_rgba(57,255,20,0.5)]' :
+                      result.actual_decision === 'REVIEW' ? 'text-[#ffea00] border-[#ffea00]/50 shadow-[0_0_30px_rgba(255,234,0,0.5)]' :
+                      'text-[#ff003c] border-[#ff003c]/50 shadow-[0_0_30px_rgba(255,0,60,0.5)]'
+                    }`}
+                  >
+                    {result.actual_decision === 'ALLOW' && <CheckCircle size={48} />}
+                    {result.actual_decision === 'REVIEW' && <AlertTriangle size={48} />}
+                    {result.actual_decision === 'BLOCK' && <AlertTriangle size={48} />}
+                  </motion.div>
+                  
                   <div>
-                    <h2 className={`text-5xl font-black font-['Space_Grotesk'] tracking-tighter mb-2 ${
-                      result.actual_decision === 'ALLOW' ? 'text-black' :
-                      result.actual_decision === 'REVIEW' ? 'text-black' :
-                      'text-white'
+                    <h2 className={`text-5xl font-light tracking-widest uppercase mb-2 ${
+                      result.actual_decision === 'ALLOW' ? 'neon-text-green' :
+                      result.actual_decision === 'REVIEW' ? 'text-[#ffea00]' :
+                      'text-[#ff003c]'
                     }`}>{result.actual_decision}</h2>
-                    <p className={`text-sm font-bold font-['Space_Grotesk'] tracking-wider uppercase border-2 border-black inline-block px-2 py-1 ${result.actual_decision === 'BLOCK' ? 'bg-white text-black' : 'bg-white text-black'}`}>
-                      Expected: {result.scenario.expected_decision} <span className="mx-2">|</span> Match: {result.match ? '✅' : '❌'}
-                    </p>
+                    <div className="flex items-center gap-4">
+                      <p className={`text-xs font-mono tracking-widest uppercase border px-3 py-1.5 rounded inline-block ${result.actual_decision === 'BLOCK' ? 'bg-[#ff003c]/10 border-[#ff003c]/30 text-[#ff003c]' : 'bg-white/5 border-white/10 text-white/70'}`}>
+                        Expected: {result.scenario.expected_decision} <span className="mx-2 opacity-50">|</span> Match: {result.match ? 'YES' : 'NO'}
+                      </p>
+                      <p className="text-white/50 font-mono text-xs">Scenario: {activeScenario?.name}</p>
+                    </div>
                   </div>
                 </div>
               </div>
-              <div className="p-8 flex-1 bg-[#F4F4F0]">
+              
+              {/* GenUI Constructed Timeline */}
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+                className="p-8 bg-black/40"
+              >
+                <h4 className="font-mono text-xs text-white/50 uppercase tracking-widest mb-6">Generated Audit Trail</h4>
                 <Timeline items={result.timeline} />
-              </div>
-            </motion.div>
-          ) : (
-            <motion.div 
-              key="empty"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="flex-1 flex flex-col items-center justify-center p-12 text-center bg-[#F4F4F0]"
-            >
-              <div className="w-24 h-24 mb-6 border-4 border-black border-dashed flex items-center justify-center bg-white shadow-[4px_4px_0_0_rgba(0,0,0,1)] animate-bounce">
-                <ScanSearch size={40} strokeWidth={2.5} className="text-black" />
-              </div>
-              <h3 className="text-3xl font-black font-['Space_Grotesk'] text-black mb-4 uppercase tracking-tight">Awaiting Signal</h3>
-              <p className="max-w-sm text-base text-black font-medium">Select a scenario from the left panel to execute a transaction through the Risk Engine.</p>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </motion.div>
+              </motion.div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

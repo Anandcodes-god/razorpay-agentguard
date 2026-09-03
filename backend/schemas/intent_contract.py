@@ -1,22 +1,23 @@
 from datetime import datetime
 from typing import Optional, List, Dict, Any
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 class IntentContractCreate(BaseModel):
     agent_id: str
-    raw_instruction: str
-    max_amount: Optional[int] = None
-    expires_in_hours: int = 24
+    raw_instruction: str = Field(max_length=2000)
+    max_amount: Optional[int] = Field(default=None, gt=0)
+    expires_in_hours: int = Field(default=24, ge=1, le=8760)
 
 class IntentContractResponse(BaseModel):
     id: str
     agent_id: str
     raw_instruction: str
-    extracted_parameters: Optional[Dict[str, Any]] = None
-    max_amount: Optional[int] = None
-    categories: Optional[List[str]] = None
-    merchant_constraints: Optional[Dict[str, Any]] = None
-    status: Optional[str] = None
+    purpose: Optional[str] = None
+    categories: Optional[str] = None
+    max_amount: int
+    currency: str = 'INR'
+    merchant_constraints: Optional[str] = None
+    requires_confirmation_above: Optional[int] = None
     created_at: Optional[datetime] = None
     expires_at: Optional[datetime] = None
 

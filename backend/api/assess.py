@@ -78,18 +78,32 @@ async def run_assessment_pipeline(transaction_dict: dict, db: AsyncSession) -> d
     return state
 
 
+from fastapi import Header
+
 @router.post("/assess", summary="Submit a transaction for risk assessment")
-async def assess_transaction(transaction_in: TransactionCreate, db: AsyncSession = Depends(get_db)):
+async def assess_transaction(
+    transaction_in: TransactionCreate, 
+    x_agent_key: str = Header(..., description="API Key for the Agent"),
+    db: AsyncSession = Depends(get_db)
+):
     """
     Submit a transaction for risk assessment.
     Runs the full AgentGuard investigation pipeline.
     Returns the complete assessment with audit timeline.
     """
+    # Verify agent identity via API key
+    result = await db.execute(select(Agent).filter(Agent.api_key == x_agent_key))
+    agent = result.scalars().first()
+    if not agent:
+        raise HTTPException(status_code=401, detail="Invalid or missing X-Agent-Key")
+        
+    actual_agent_id = agent.id
+
     # 1. Create Transaction record
     tx_id = str(uuid.uuid4())
     transaction = Transaction(
         id=tx_id,
-        agent_id=transaction_in.agent_id,
+        agent_id=actual_agent_id,
         intent_contract_id=transaction_in.intent_contract_id,
         merchant_name=transaction_in.merchant_name,
         merchant_category=transaction_in.merchant_category,
@@ -104,7 +118,7 @@ async def assess_transaction(transaction_in: TransactionCreate, db: AsyncSession
     # 2. Build transaction dict for the pipeline
     tx_dict = {
         "id": tx_id,
-        "agent_id": transaction_in.agent_id,
+        "agent_id": actual_agent_id,
         "intent_contract_id": transaction_in.intent_contract_id,
         "merchant_name": transaction_in.merchant_name,
         "merchant_category": transaction_in.merchant_category,
@@ -159,10 +173,41 @@ async def assess_transaction(transaction_in: TransactionCreate, db: AsyncSession
         )
         db.add(log)
 
-    # 6. Update transaction status
+    # 6. Hit Real Razorpay API if ALLOWED
     decision = final_state.get("policy_decision", "BLOCK")
     transaction.status = decision.lower()
     
+    if decision == "ALLOW":
+        from backend.services.razorpay_client import get_razorpay_service
+        from datetime import datetime
+        rzp = get_razorpay_service()
+        order_res = rzp.create_order(
+            amount=transaction.amount,
+            currency=transaction.currency,
+            notes={"agent_id": transaction.agent_id, "merchant": transaction.merchant_name}
+        )
+        if "error" not in order_res:
+            transaction.razorpay_order_id = order_res.get("id")
+            step = len(timeline) + 1
+            log = AuditLog(
+                id=str(uuid.uuid4()),
+                assessment_id=assessment_id,
+                step_number=step,
+                event_type="action",
+                title="Razorpay Order Created",
+                detail=f"Real API hit! Order ID: {transaction.razorpay_order_id}",
+                severity="info"
+            )
+            db.add(log)
+            timeline.append({
+                "step_number": step,
+                "event_type": "action",
+                "title": "Razorpay Order Created",
+                "detail": f"Real API hit! Order ID: {transaction.razorpay_order_id}",
+                "severity": "info",
+                "timestamp": datetime.utcnow().isoformat()
+            })
+            
     await db.commit()
 
     # 7. Return response

@@ -68,18 +68,45 @@ async def run_scenario(scenario_id: int, db: AsyncSession = Depends(get_db)):
     # The pipeline returns state but doesn't persist. We need to persist here.
     import json
     from backend.models import Transaction, RiskAssessment, AuditLog
+    from backend.services.razorpay_client import get_razorpay_service
     
     tx_id = str(uuid.uuid4())
+    decision = result.get("policy_decision", "BLOCK").upper()
+    
+    # If ALLOW, hit the real Razorpay API
+    razorpay_order_id = None
+    if decision == "ALLOW":
+        rzp = get_razorpay_service()
+        order_res = rzp.create_order(
+            amount=tx_data["amount"],
+            currency=tx_data.get("currency", "INR"),
+            notes={"agent_id": tx_data["agent_id"], "merchant": tx_data.get("merchant_name")}
+        )
+        if "error" not in order_res:
+            razorpay_order_id = order_res.get("id")
+            # Optionally add an audit log that the order was actually created
+            step = len(result.get("audit_timeline", [])) + 1
+            result.setdefault("audit_timeline", []).append({
+                "step_number": step,
+                "event_type": "action",
+                "title": "Razorpay Order Created",
+                "detail": f"Real API hit! Order ID: {razorpay_order_id}",
+                "severity": "info",
+                "timestamp": datetime.utcnow().isoformat()
+            })
+
     tx = Transaction(
         id=tx_id,
         agent_id=tx_data["agent_id"],
         intent_contract_id=tx_data.get("intent_contract_id"),
+        razorpay_order_id=razorpay_order_id,
         merchant_name=tx_data.get("merchant_name"),
         merchant_category=tx_data.get("merchant_category"),
         amount=tx_data["amount"],
         currency=tx_data.get("currency", "INR"),
         description=tx_data.get("description"),
-        status=result.get("policy_decision", "BLOCK").lower(),
+        status=decision.lower(),
+        created_at=datetime.fromisoformat(tx_data["created_at"]) if "created_at" in tx_data else datetime.utcnow()
     )
     db.add(tx)
 

@@ -18,6 +18,7 @@ async def seed_agents(session: AsyncSession) -> Dict[str, str]:
             'id': 'agent_shopbot_001',
             'name': 'ShopBot',
             'principal_id': 'user_anand_123',
+            'api_key': 'ak_test_shopbot_123',
             'is_verified': True,
             'scope': json.dumps({'categories': ['groceries', 'food', 'footwear', 'sports'], 'merchants': []}),
             'max_budget': 5000000,  # ₹50,000 in paise
@@ -167,6 +168,16 @@ async def seed_transaction_history(session: AsyncSession) -> None:
 
 async def seed_all(session: AsyncSession) -> Dict[str, Any]:
     """Run all seed functions. Returns summary."""
+    from sqlalchemy import text
+    
+    # Wipe existing data first to ensure reproducible state
+    await session.execute(text("DELETE FROM audit_logs"))
+    await session.execute(text("DELETE FROM risk_assessments"))
+    await session.execute(text("DELETE FROM transactions"))
+    await session.execute(text("DELETE FROM intent_contracts"))
+    await session.execute(text("DELETE FROM agents"))
+    await session.commit()
+
     agents = await seed_agents(session)
     contracts = await seed_intent_contracts(session)
     await seed_transaction_history(session)

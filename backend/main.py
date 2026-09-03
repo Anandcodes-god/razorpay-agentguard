@@ -20,29 +20,26 @@ app = FastAPI(
 # CORS middleware for development
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # Allow all origins for dev
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # Import and register routers
-try:
-    from backend.api.agents import router as agents_router
-    from backend.api.contracts import router as contracts_router
-    from backend.api.assess import router as assess_router
-    from backend.api.simulate import router as simulate_router
-    from backend.api.dashboard import router as dashboard_router
-    from backend.api.seed_route import router as seed_router
+from backend.api.agents import router as agents_router
+from backend.api.contracts import router as contracts_router
+from backend.api.assess import router as assess_router
+from backend.api.simulate import router as simulate_router
+from backend.api.dashboard import router as dashboard_router
+from backend.api.seed_route import router as seed_router
 
-    app.include_router(agents_router, prefix="/api/agents", tags=["Agents"])
-    app.include_router(contracts_router, prefix="/api/contracts", tags=["Contracts"])
-    app.include_router(assess_router, prefix="/api", tags=["Risk Assessment"])
-    app.include_router(simulate_router, prefix="/api/simulate", tags=["Simulation"])
-    app.include_router(dashboard_router, prefix="/api/dashboard", tags=["Dashboard"])
-    app.include_router(seed_router, prefix="/api", tags=["Setup"])
-except ImportError as e:
-    print(f"Warning: Could not import some routers: {e}")
+app.include_router(agents_router, prefix="/api/agents", tags=["Agents"])
+app.include_router(contracts_router, prefix="/api/contracts", tags=["Contracts"])
+app.include_router(assess_router, prefix="/api", tags=["Risk Assessment"])
+app.include_router(simulate_router, prefix="/api/simulate", tags=["Simulation"])
+app.include_router(dashboard_router, prefix="/api/dashboard", tags=["Dashboard"])
+app.include_router(seed_router, prefix="/api", tags=["Setup"])
 
 @app.get("/")
 async def root():

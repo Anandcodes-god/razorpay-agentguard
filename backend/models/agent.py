@@ -11,6 +11,7 @@ class Agent(Base):
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     name: Mapped[str] = mapped_column(String, nullable=False)
     principal_id: Mapped[str] = mapped_column(String, nullable=False)
+    api_key: Mapped[str] = mapped_column(String, nullable=False, unique=True, default=lambda: f"ak_{uuid.uuid4().hex}")
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False)
     scope: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     max_budget: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)

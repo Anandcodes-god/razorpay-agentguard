@@ -17,13 +17,13 @@ IMPORTANT RULES:
 - Your recommendation may be overridden by the policy engine. That's by design.
 
 Respond in this JSON format:
-{
+{{
     "analysis": "Your investigation narrative...",
     "risk_factors": ["factor 1", "factor 2"],
     "recommendation": "ALLOW|REVIEW|BLOCK",
     "reasoning": "Why you recommend this...",
     "confidence": 85
-}
+}}
 """
 
 INTENT_PARSING_PROMPT = """
@@ -37,13 +37,13 @@ Extract:
 - requires_confirmation_above: Amount in paise above which human confirmation is needed. Default to the max_amount.
 
 Respond in this JSON format:
-{
+{{
     "purpose": "buy running shoes",
     "categories": ["footwear", "sports"],
     "max_amount": 500000,
-    "merchant_constraints": {},
+    "merchant_constraints": {{}},
     "requires_confirmation_above": 500000
-}
+}}
 
 Human instruction: {instruction}
 """

@@ -31,7 +31,7 @@ async def get_dashboard_stats(db: AsyncSession = Depends(get_db)):
         .filter(RiskAssessment.policy_decision == "BLOCK")
     ) or 0.0
 
-    # Recent assessments
+    # Recent assessments — serialize properly instead of returning raw ORM objects
     recent = await db.execute(
         select(RiskAssessment)
         .order_by(desc(RiskAssessment.created_at))
@@ -47,13 +47,21 @@ async def get_dashboard_stats(db: AsyncSession = Depends(get_db)):
         "total_amount_assessed": float(total_amount),
         "total_amount_allowed": float(allowed_amount),
         "total_amount_blocked": float(blocked_amount),
-        "recent_assessments": recent_assessments
+        "recent_assessments": [
+            {
+                "id": a.id,
+                "transaction_id": a.transaction_id,
+                "policy_decision": a.policy_decision,
+                "overall_risk_score": a.overall_risk_score,
+                "created_at": a.created_at.isoformat() if a.created_at else None,
+            }
+            for a in recent_assessments
+        ],
     }
 
 @router.get("/agents", summary="Return all agents with stats")
 async def get_dashboard_agents(db: AsyncSession = Depends(get_db)):
     """Return all agents with their assessment counts."""
-    # Simple join to get counts per agent
     result = await db.execute(select(Agent))
     agents = result.scalars().all()
     
@@ -63,9 +71,15 @@ async def get_dashboard_agents(db: AsyncSession = Depends(get_db)):
             select(func.count(Transaction.id))
             .filter(Transaction.agent_id == agent.id)
         )
-        agent_dict = agent.__dict__.copy()
-        agent_dict.pop("_sa_instance_state", None)
-        agent_dict["assessment_count"] = count or 0
-        data.append(agent_dict)
+        data.append({
+            "id": agent.id,
+            "name": agent.name,
+            "principal_id": agent.principal_id,
+            "is_verified": agent.is_verified,
+            "max_budget": agent.max_budget,
+            "created_at": agent.created_at.isoformat() if agent.created_at else None,
+            "expires_at": agent.expires_at.isoformat() if agent.expires_at else None,
+            "assessment_count": count or 0,
+        })
 
     return data

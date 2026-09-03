@@ -405,6 +405,9 @@ async def policy_gate_node(state: AgentGuardState) -> dict:
         state.get("agent_trust_score", 0),
         state.get("transaction_risk_score", 0),
     )
+    # Force the visual score to reflect a hard block
+    if result.decision == "BLOCK":
+        overall_score = min(overall_score, 10)
 
     # Determine severity for audit log
     if result.decision == "BLOCK":
