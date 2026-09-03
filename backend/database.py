@@ -1,5 +1,6 @@
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from sqlalchemy.orm import declarative_base
+from sqlalchemy import text
 from backend.config import settings
 
 # Ensure we use aiosqlite for async sqlite
@@ -19,3 +20,11 @@ async def get_db():
 async def create_tables():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        if db_url.startswith("sqlite+"):
+            columns = await conn.execute(text("PRAGMA table_info(transactions)"))
+            if "idempotency_key" not in {row[1] for row in columns.fetchall()}:
+                await conn.execute(text("ALTER TABLE transactions ADD COLUMN idempotency_key VARCHAR(128)"))
+            await conn.execute(text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS uq_transaction_agent_idempotency "
+                "ON transactions (agent_id, idempotency_key)"
+            ))

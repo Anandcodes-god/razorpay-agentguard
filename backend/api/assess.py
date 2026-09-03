@@ -7,6 +7,7 @@ the full agent investigation pipeline.
 import json
 import uuid
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
 
@@ -99,11 +100,21 @@ async def assess_transaction(
         
     actual_agent_id = agent.id
 
+    existing = await db.execute(
+        select(Transaction).filter(
+            Transaction.agent_id == actual_agent_id,
+            Transaction.idempotency_key == transaction_in.idempotency_key,
+        )
+    )
+    if existing.scalars().first():
+        raise HTTPException(status_code=409, detail="This idempotency key has already been used")
+
     # 1. Create Transaction record
     tx_id = str(uuid.uuid4())
     transaction = Transaction(
         id=tx_id,
         agent_id=actual_agent_id,
+        idempotency_key=transaction_in.idempotency_key,
         intent_contract_id=transaction_in.intent_contract_id,
         merchant_name=transaction_in.merchant_name,
         merchant_category=transaction_in.merchant_category,
@@ -113,12 +124,17 @@ async def assess_transaction(
         status="pending",
     )
     db.add(transaction)
-    await db.flush()
+    try:
+        await db.flush()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=409, detail="This idempotency key has already been used")
 
     # 2. Build transaction dict for the pipeline
     tx_dict = {
         "id": tx_id,
         "agent_id": actual_agent_id,
+        "idempotency_key": transaction_in.idempotency_key,
         "intent_contract_id": transaction_in.intent_contract_id,
         "merchant_name": transaction_in.merchant_name,
         "merchant_category": transaction_in.merchant_category,

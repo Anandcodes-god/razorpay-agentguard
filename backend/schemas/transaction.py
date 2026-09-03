@@ -3,6 +3,7 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field
 
 class TransactionCreate(BaseModel):
+    idempotency_key: str = Field(min_length=1, max_length=128)
     intent_contract_id: Optional[str] = None
     merchant_name: str = Field(max_length=255)
     merchant_category: str = Field(max_length=100)

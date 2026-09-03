@@ -12,7 +12,6 @@ const SCENARIOS = [
 ];
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
-const API_HEADERS = { "X-API-Key": import.meta.env.VITE_ADMIN_API_KEY || "dev-secret" };
 
 type Phase = "idle" | "processing" | "result";
 
@@ -31,7 +30,6 @@ export default function Simulator() {
     try {
       const response = await fetch(`${API_BASE}/api/simulate/run?scenario_id=${scenario.id}`, {
         method: "POST",
-        headers: API_HEADERS,
       });
       if (!response.ok) throw new Error(`Request failed (${response.status})`);
       setResult(await response.json());
@@ -46,13 +44,13 @@ export default function Simulator() {
   const seedDB = async () => {
     setError(null);
     try {
-      const response = await fetch(`${API_BASE}/api/seed`, { method: "POST", headers: API_HEADERS });
+      const response = await fetch(`${API_BASE}/api/seed`, { method: "POST" });
       if (!response.ok) throw new Error(`Request failed (${response.status})`);
       setSeedMsg("State Reset");
       setTimeout(() => setSeedMsg(""), 2000);
     } catch (requestError) {
       console.error(requestError);
-      setError("Could not reset database. Is the backend running?");
+      setError("Database reset is unavailable. Check that DEBUG=true in the backend .env file.");
     }
   };
 

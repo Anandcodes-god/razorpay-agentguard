@@ -16,6 +16,8 @@ When you give an AI agent access to a payment gateway, how do you ensure it does
 
 AgentGuard introduces **Intent Contracts**. When a human authorizes an agent, they provide a natural language prompt (e.g., *"Book a flight to Mumbai for under ₹10,000"*). AgentGuard uses an LLM to parse this into a strict database contract.
 
+The contract's `max_amount` is a per-transaction ceiling. Velocity checks and confirmation thresholds provide additional protection against repeated spending.
+
 When the agent attempts to call the Razorpay API, AgentGuard intercepts the transaction and runs a purely deterministic policy gate (FastAPI + Python). Only if the deterministic rules fail to conclusively ALLOW or BLOCK the transaction (e.g., semantic category drift), does AgentGuard invoke an LLM (LangGraph + Gemini/OpenAI) to reason about the transaction against the Intent Contract and output a transparent audit trail.
 
 ## Key Features
@@ -34,7 +36,6 @@ pip install -r requirements.txt
 
 # 2. Setup Env
 # Copy .env.example to .env and fill in your Gemini API key and Razorpay keys.
-# Keep VITE_ADMIN_API_KEY aligned with ADMIN_API_KEY for frontend API requests.
 cp .env.example .env
 
 # 3. Start Backend

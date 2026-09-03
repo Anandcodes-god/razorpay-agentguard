@@ -73,26 +73,36 @@ def check_category_match(transaction: Dict[str, Any], intent_contract: Dict[str,
         
     return True, "info", "Category matches intent."
 
-def check_merchant_allowed(transaction: Dict[str, Any], intent_contract: Dict[str, Any]) -> Tuple[bool, str, str]:
-    """BLOCK explicitly blocked merchants and REVIEW merchants outside an allowlist."""
-    if not intent_contract:
-        return False, "block", "Missing intent contract for merchant check."
-
-    constraints = intent_contract.get("merchant_constraints") or {}
+def _merchant_constraints(intent_contract: Dict[str, Any]) -> Dict[str, Any]:
+    constraints = intent_contract.get("merchant_constraints") or {} if intent_contract else {}
     if isinstance(constraints, str):
         try:
             constraints = json.loads(constraints)
         except json.JSONDecodeError:
             constraints = {}
+    return constraints if isinstance(constraints, dict) else {}
 
+def check_merchant_blocked(transaction: Dict[str, Any], intent_contract: Dict[str, Any]) -> Tuple[bool, str, str]:
+    """BLOCK merchants explicitly listed in the intent contract blocklist."""
+    if not intent_contract:
+        return False, "block", "Missing intent contract for merchant check."
+    constraints = _merchant_constraints(intent_contract)
     merchant = transaction.get("merchant_name", "")
     blocked = constraints.get("blocked", [])
-    allowed = constraints.get("allowed", [])
     if merchant in blocked:
         return False, "block", f"Merchant '{merchant}' is blocked by the intent contract."
+    return True, "info", "Merchant is not on the blocklist."
+
+def check_merchant_allowlisted(transaction: Dict[str, Any], intent_contract: Dict[str, Any]) -> Tuple[bool, str, str]:
+    """REVIEW merchants outside an explicitly configured allowlist."""
+    if not intent_contract:
+        return True, "info", "No merchant allowlist to check."
+    constraints = _merchant_constraints(intent_contract)
+    merchant = transaction.get("merchant_name", "")
+    allowed = constraints.get("allowed", [])
     if allowed and merchant not in allowed:
         return False, "review", f"Merchant '{merchant}' is not in the allowed merchant list."
-    return True, "info", "Merchant is allowed by the intent contract."
+    return True, "info", "Merchant is allowlisted or no allowlist is set."
 
 def check_confirmation_threshold(transaction: Dict[str, Any], intent_contract: Dict[str, Any]) -> Tuple[bool, str, str]:
     """REVIEW if amount exceeds the confirmation threshold set in the intent contract."""

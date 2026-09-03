@@ -3,14 +3,13 @@ import { Shield, ShieldAlert, ShieldCheck, Activity } from "lucide-react";
 import { motion, type Variants } from "framer-motion";
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
-const API_HEADERS = { 'X-API-Key': import.meta.env.VITE_ADMIN_API_KEY || 'dev-secret' };
 
 export default function Dashboard() {
   const [stats, setStats] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch(`${API_BASE}/api/dashboard/stats`, { headers: API_HEADERS })
+    fetch(`${API_BASE}/api/dashboard/stats`)
       .then(res => {
         if (!res.ok) throw new Error("Failed to fetch dashboard stats");
         return res.json();

@@ -1,15 +1,17 @@
 import uuid
 from datetime import datetime, timezone
 from typing import Optional
-from sqlalchemy import String, Integer, DateTime, ForeignKey
+from sqlalchemy import String, Integer, DateTime, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from backend.database import Base
 
 class Transaction(Base):
     __tablename__ = 'transactions'
+    __table_args__ = (UniqueConstraint("agent_id", "idempotency_key", name="uq_transaction_agent_idempotency"),)
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     agent_id: Mapped[str] = mapped_column(String, ForeignKey("agents.id"), nullable=False)
+    idempotency_key: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
     intent_contract_id: Mapped[Optional[str]] = mapped_column(String, ForeignKey("intent_contracts.id"), nullable=True)
     razorpay_order_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     razorpay_payment_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)

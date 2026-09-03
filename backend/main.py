@@ -24,10 +24,16 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from backend.config import settings
 
 ADMIN_KEY = settings.admin_api_key
+PUBLIC_PATHS = {
+    "/api/dashboard/stats",
+    "/api/dashboard/agents",
+    "/api/simulate/run",
+    "/api/seed",
+}
 
 class APIKeyMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
-        if request.url.path.startswith("/api/"):
+        if request.url.path.startswith("/api/") and request.url.path not in PUBLIC_PATHS and request.url.path != "/api/assess":
             if request.method != "OPTIONS":
                 key = request.headers.get("X-API-Key")
                 if key != ADMIN_KEY:
@@ -62,3 +68,7 @@ app.include_router(seed_router, prefix="/api", tags=["Setup"])
 @app.get("/")
 async def root():
     return {"status": "AgentGuard is running", "version": "1.0.0"}
+
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
