@@ -5,6 +5,7 @@ from .rules import (
     check_agent_not_expired,
     check_agent_has_principal,
     check_amount_within_intent,
+    check_merchant_allowed,
     check_category_match,
     check_confirmation_threshold,
     check_velocity,
@@ -45,6 +46,7 @@ class PolicyGate:
             ("agent_expired", check_agent_not_expired, [agent]),
             ("no_principal", check_agent_has_principal, [agent]),
             ("intent_amount_exceeded", check_amount_within_intent, [transaction, intent_contract]),
+            ("merchant_blocked", check_merchant_allowed, [transaction, intent_contract]),
         ]
         
         # Define REVIEW checks

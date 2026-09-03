@@ -3,10 +3,12 @@ from httpx import AsyncClient, ASGITransport
 import asyncio
 from backend.main import app
 from backend.database import create_tables
+from backend.config import settings
 
 @pytest.mark.asyncio
 async def test_all_scenarios_match():
     # Ensure tables exist
+    settings.debug = True
     await create_tables()
     
     # Setup transport

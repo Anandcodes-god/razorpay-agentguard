@@ -13,3 +13,18 @@ def test_policy_gate_block_overrides_review():
     # The transaction amount is within limits, which is ALLOW/REVIEW.
     # The BLOCK must win.
     assert result.decision == "BLOCK"
+
+def test_policy_gate_blocks_blocked_merchant():
+    result = PolicyGate().evaluate(
+        agent={"is_verified": True, "principal_id": "human", "expires_at": None},
+        transaction={"amount": 100, "category": "food", "merchant_name": "SteamGames", "created_at": "2024-01-15T10:00:00+05:30"},
+        intent_contract={
+            "max_amount": 200,
+            "allowed_categories": ["food"],
+            "merchant_constraints": {"blocked": ["SteamGames"]},
+            "confirmation_threshold": None,
+        },
+        transaction_history=None,
+    )
+    assert result.decision == "BLOCK"
+    assert result.flags["merchant_blocked"] is True

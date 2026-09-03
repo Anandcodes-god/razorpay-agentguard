@@ -6,7 +6,7 @@ the full agent investigation pipeline.
 """
 import json
 import uuid
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
 
@@ -236,7 +236,7 @@ async def assess_transaction(
 
 
 @router.get("/assessments", summary="List recent assessments")
-async def list_assessments(limit: int = 50, db: AsyncSession = Depends(get_db)):
+async def list_assessments(limit: int = Query(50, ge=1, le=200), db: AsyncSession = Depends(get_db)):
     """List the most recent risk assessments."""
     result = await db.execute(
         select(RiskAssessment)

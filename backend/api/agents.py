@@ -5,7 +5,7 @@ from typing import List
 
 from backend.database import get_db
 from backend.models import Agent
-from backend.schemas import AgentCreate, AgentResponse
+from backend.schemas import AgentCreate, AgentResponse, AgentCreateResponse
 
 router = APIRouter(tags=["Agents"])
 
@@ -16,7 +16,7 @@ async def list_agents(db: AsyncSession = Depends(get_db)):
     agents = result.scalars().all()
     return agents
 
-@router.post("", response_model=AgentResponse, summary="Create a new agent")
+@router.post("", response_model=AgentCreateResponse, summary="Create a new agent")
 async def create_agent(agent_data: AgentCreate, db: AsyncSession = Depends(get_db)):
     """Create a new agent."""
     import json, uuid

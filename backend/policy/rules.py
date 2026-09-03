@@ -73,6 +73,27 @@ def check_category_match(transaction: Dict[str, Any], intent_contract: Dict[str,
         
     return True, "info", "Category matches intent."
 
+def check_merchant_allowed(transaction: Dict[str, Any], intent_contract: Dict[str, Any]) -> Tuple[bool, str, str]:
+    """BLOCK explicitly blocked merchants and REVIEW merchants outside an allowlist."""
+    if not intent_contract:
+        return False, "block", "Missing intent contract for merchant check."
+
+    constraints = intent_contract.get("merchant_constraints") or {}
+    if isinstance(constraints, str):
+        try:
+            constraints = json.loads(constraints)
+        except json.JSONDecodeError:
+            constraints = {}
+
+    merchant = transaction.get("merchant_name", "")
+    blocked = constraints.get("blocked", [])
+    allowed = constraints.get("allowed", [])
+    if merchant in blocked:
+        return False, "block", f"Merchant '{merchant}' is blocked by the intent contract."
+    if allowed and merchant not in allowed:
+        return False, "review", f"Merchant '{merchant}' is not in the allowed merchant list."
+    return True, "info", "Merchant is allowed by the intent contract."
+
 def check_confirmation_threshold(transaction: Dict[str, Any], intent_contract: Dict[str, Any]) -> Tuple[bool, str, str]:
     """REVIEW if amount exceeds the confirmation threshold set in the intent contract."""
     if not intent_contract:

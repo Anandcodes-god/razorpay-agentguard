@@ -390,6 +390,7 @@ async def policy_gate_node(state: AgentGuardState) -> dict:
         policy_intent = {
             "max_amount": intent_contract.get("max_amount", 0),
             "allowed_categories": intent_contract.get("categories", []),
+            "merchant_constraints": intent_contract.get("merchant_constraints", {}),
             "confirmation_threshold": intent_contract.get("requires_confirmation_above"),
         }
 

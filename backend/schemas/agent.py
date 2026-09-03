@@ -27,7 +27,6 @@ class AgentResponse(BaseModel):
         if not v or not v.strip():
             raise ValueError('principal_id cannot be empty')
         return v
-    api_key: str
     is_verified: bool
     scope: Optional[Dict[str, Any]] = None
     max_budget: Optional[int] = None
@@ -50,6 +49,9 @@ class AgentResponse(BaseModel):
             data['scope'] = getattr(obj, '_scope_parsed', obj.scope)
             return super().model_validate(data, **kwargs)
         return super().model_validate(obj, **kwargs)
+
+class AgentCreateResponse(AgentResponse):
+    api_key: str
 
 class AgentTrustScore(BaseModel):
     agent_id: str

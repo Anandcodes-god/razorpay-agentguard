@@ -19,11 +19,11 @@ app = FastAPI(
 )
 
 # CORS middleware for development
-import os
 from fastapi import Request, HTTPException
 from starlette.middleware.base import BaseHTTPMiddleware
+from backend.config import settings
 
-ADMIN_KEY = os.environ.get("ADMIN_API_KEY", "dev-secret")
+ADMIN_KEY = settings.admin_api_key
 
 class APIKeyMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
@@ -39,7 +39,7 @@ app.add_middleware(APIKeyMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],  # Allow all origins for dev
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
