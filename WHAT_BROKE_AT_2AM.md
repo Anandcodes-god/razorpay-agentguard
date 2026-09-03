@@ -30,3 +30,25 @@ I had to completely delete the corrupted `index.css` file and regenerate it pure
 
 ## The Lesson
 When building cross-platform (especially on Windows), never trust shell piping (`>>`) for critical text files. Always use robust programmatic file writers (`open(file, encoding='utf-8')`) or standard text editors. It cost me 30 minutes of sleep, but the scrollbar is finally hidden!
+
+## The Follow-Up Audit
+
+After the UI incident was closed, a security review found several issues that could have caused a different kind of 2 AM page:
+
+- The operator API key was being sent to the browser through `VITE_ADMIN_API_KEY`. The frontend no longer ships that secret. Dashboard and fixed demo routes are public, while agent and contract management routes remain protected by `ADMIN_API_KEY`.
+- Agent API keys are no longer included in normal agent list or detail responses. The key is returned only when an agent is created.
+- Merchant constraints are enforced by the deterministic policy gate. Blocklisted merchants are blocked, while merchants outside an explicit allowlist go to review.
+- Assessment requests now require an idempotency key. A unique `(agent_id, idempotency_key)` constraint prevents duplicate assessment and Razorpay order processing.
+- Database SQL logging is controlled by `DEBUG`, and demo seeding is disabled unless debugging is explicitly enabled. For local development, the ignored `.env` sets `DEBUG=true` so the Simulator's reset button works.
+- CORS is restricted to the local frontend origins, assessment list requests are capped, and `/health` provides a simple service check.
+
+The follow-up fixes were verified with:
+
+```text
+10 passed
+Frontend production build passed
+Python compilation passed
+git diff --check passed
+```
+
+The lesson is broader than the original encoding mistake: security controls must be checked at every boundary, including the browser bundle, demo-only routes, database constraints, and failure paths around payment order creation.
