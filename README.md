@@ -35,8 +35,7 @@ venv\Scripts\activate
 pip install -r requirements.txt
 
 # 2. Setup Env
-# Copy .env.example to .env and fill in your Gemini API key and Razorpay keys.
-cp .env.example .env
+# Fill in the existing .env file with your Gemini API key and Razorpay keys.
 
 # 3. Start Backend
 python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
