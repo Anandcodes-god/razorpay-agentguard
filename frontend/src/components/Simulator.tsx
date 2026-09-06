@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { AlertTriangle, ArrowLeft, ArrowRight, CheckCircle, Play, RotateCcw, ScanSearch, ShieldX } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ArrowRight, CheckCircle, MessageSquare, Play, RotateCcw, ScanSearch, ShieldX } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import Timeline from "./Timeline";
 
@@ -20,18 +20,40 @@ const USE_DEV_PROXY = import.meta.env.DEV && !import.meta.env.VITE_API_URL;
 type Phase = "idle" | "processing" | "result";
 const PIPELINE_STAGES = ["REQUEST", "IDENTITY", "CONTRACT", "POLICY", "DECISION", "AUDIT"];
 
+type LlmAnalysis = {
+  analysis?: string;
+  risk_factors?: string[];
+  recommendation?: string;
+  reasoning?: string;
+  confidence?: number;
+};
+
+function parseLlmAnalysis(value: unknown): LlmAnalysis | null {
+  if (typeof value !== "string") return null;
+
+  const cleaned = value.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+  try {
+    const parsed = JSON.parse(cleaned);
+    return parsed && typeof parsed === "object" ? parsed as LlmAnalysis : null;
+  } catch {
+    return null;
+  }
+}
+
 export default function Simulator() {
   const [phase, setPhase] = useState<Phase>("idle");
   const [result, setResult] = useState<any>(null);
   const [activeScenario, setActiveScenario] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [seedMsg, setSeedMsg] = useState("");
+  const [paymentStatus, setPaymentStatus] = useState<string | null>(null);
 
   const runScenario = async (scenario: any) => {
     setActiveScenario(scenario);
     setPhase("processing");
     setResult(null);
     setError(null);
+    setPaymentStatus(null);
     if (!API_HEADERS && !USE_DEV_PROXY) {
       setError("Simulator access is not configured. Set VITE_ADMIN_API_KEY in frontend/.env and restart Vite.");
       setPhase("idle");
@@ -70,6 +92,48 @@ export default function Simulator() {
   };
 
   const decision = result?.actual_decision;
+
+  const payForTransaction = async () => {
+    if (!result?.razorpay_order_id || !result.razorpay_key_id) {
+      setError("Razorpay checkout is not configured for this order.");
+      return;
+    }
+
+    setError(null);
+    setPaymentStatus("Opening checkout...");
+    try {
+      await loadRazorpayCheckout();
+      const Razorpay = (window as any).Razorpay;
+      const checkout = new Razorpay({
+        key: result.razorpay_key_id,
+        amount: result.amount,
+        currency: "INR",
+        name: "AgentGuard",
+        description: result.scenario.description,
+        order_id: result.razorpay_order_id,
+        handler: async (response: any) => {
+          const verification = await fetch(`${API_BASE}/api/simulate/payment/verify`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", ...(API_HEADERS || {}) },
+            body: JSON.stringify({
+              transaction_id: result.transaction_id,
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+            }),
+          });
+          if (!verification.ok) throw new Error((await verification.json()).detail || "Payment verification failed");
+          setPaymentStatus("Payment verified and transaction recorded");
+        },
+        modal: { ondismiss: () => setPaymentStatus(null) },
+      });
+      checkout.open();
+    } catch (paymentError) {
+      console.error(paymentError);
+      setPaymentStatus(null);
+      setError(paymentError instanceof Error ? paymentError.message : "Unable to open Razorpay checkout.");
+    }
+  };
 
   return (
     <div className="min-h-full w-full flex flex-col items-center relative py-12">
@@ -126,8 +190,15 @@ export default function Simulator() {
                   <div className="result-heading">
                     <span className="eyebrow">SCENARIO {String(result.scenario.id).padStart(2, "0")} / DECISION</span><h2>{decision}</h2>
                     <p>Expected: {result.scenario.expected_decision} <span /> Match: {result.match ? "YES" : "NO"}</p>
+                    {decision === "ALLOW" && result.razorpay_order_id && (
+                      <button type="button" onClick={payForTransaction} className="pay-button">
+                        <CheckCircle size={14} /> PAY NOW
+                      </button>
+                    )}
+                    {paymentStatus && <p className="payment-status">{paymentStatus}</p>}
                   </div>
                 </div>
+              <LlmAnalysisPanel analysis={result.llm_analysis} recommendation={result.llm_recommendation} />
               <div className="result-timeline">
                 <h4>GENERATED AUDIT TRAIL</h4>
                 <Timeline items={result.timeline} />
@@ -137,5 +208,46 @@ export default function Simulator() {
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+function loadRazorpayCheckout(): Promise<void> {
+  if ((window as any).Razorpay) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("Razorpay Checkout could not be loaded."));
+    document.body.appendChild(script);
+  });
+}
+
+function LlmAnalysisPanel({ analysis, recommendation }: { analysis?: string; recommendation?: string }) {
+  const parsed = parseLlmAnalysis(analysis);
+  if (!analysis) return null;
+
+  if (!parsed) {
+    return (
+      <section className="llm-analysis-panel">
+        <div className="llm-analysis-heading"><MessageSquare size={16} /><h4>LLM ANALYSIS</h4></div>
+        <p className="llm-analysis-text">{analysis}</p>
+      </section>
+    );
+  }
+
+  const riskFactors = Array.isArray(parsed.risk_factors) ? parsed.risk_factors : [];
+  const decision = parsed.recommendation || recommendation;
+
+  return (
+    <section className="llm-analysis-panel">
+      <div className="llm-analysis-heading"><MessageSquare size={16} /><h4>LLM ANALYSIS</h4></div>
+      <div className="llm-analysis-grid">
+        {parsed.analysis && <div className="llm-analysis-field llm-analysis-field--wide"><span>Summary</span><p>{parsed.analysis}</p></div>}
+        {parsed.reasoning && <div className="llm-analysis-field llm-analysis-field--wide"><span>Reasoning</span><p>{parsed.reasoning}</p></div>}
+        <div className="llm-analysis-field"><span>Risk factors</span><p>{riskFactors.length ? riskFactors.join(", ") : "None detected"}</p></div>
+        {decision && <div className="llm-analysis-field"><span>Recommendation</span><strong className={`llm-recommendation llm-recommendation--${decision.toLowerCase()}`}>{decision}</strong></div>}
+        {typeof parsed.confidence === "number" && <div className="llm-analysis-field"><span>Confidence</span><strong>{parsed.confidence}%</strong></div>}
+      </div>
+    </section>
   );
 }

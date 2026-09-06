@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     openai_api_key: Optional[str] = None
     
     llm_provider: str = "gemini"
-    llm_model: str = "gemini-2.0-flash"
+    llm_model: str = "gemini-3.6-flash"
     
     database_url: str = "sqlite:///./agentguard.db"
     

@@ -4,14 +4,24 @@ Simulation endpoints for running demo scenarios.
 import uuid
 from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database import get_db
 from backend.models import Transaction
 from backend.seed.scenarios import get_scenario, get_all_scenarios
 from backend.api.assess import run_assessment_pipeline
+from backend.config import get_settings
 
 router = APIRouter(tags=["Simulation"])
+
+
+class PaymentVerification(BaseModel):
+    transaction_id: str
+    razorpay_order_id: str
+    razorpay_payment_id: str
+    razorpay_signature: str
 
 
 async def _inject_velocity_spike(db: AsyncSession, agent_id: str, count: int = 12):
@@ -164,6 +174,7 @@ async def run_scenario(scenario_id: int, db: AsyncSession = Depends(get_db)):
         "match": result.get("policy_decision") == scenario["expected_decision"],
         "assessment_id": assessment_id,
         "transaction_id": tx_id,
+        "amount": tx_data["amount"],
         "scores": {
             "intent_deviation": result.get("intent_deviation_score", 0),
             "agent_trust": result.get("agent_trust_score", 0),
@@ -171,8 +182,38 @@ async def run_scenario(scenario_id: int, db: AsyncSession = Depends(get_db)):
             "overall": result.get("overall_risk_score", 0),
         },
         "policy_reasons": reasons,
+        "llm_analysis": result.get("llm_analysis"),
+        "llm_recommendation": result.get("llm_recommendation"),
+        "razorpay_key_id": get_settings().razorpay_key_id,
+        "razorpay_order_id": razorpay_order_id,
         "timeline": timeline,
     }
+
+
+@router.post("/payment/verify", summary="Verify a completed Razorpay payment")
+async def verify_payment(payment: PaymentVerification, db: AsyncSession = Depends(get_db)):
+    """Verify Checkout's signature before marking the local transaction paid."""
+    result = await db.execute(
+        select(Transaction).filter(Transaction.id == payment.transaction_id)
+    )
+    transaction = result.scalars().first()
+    if not transaction or transaction.razorpay_order_id != payment.razorpay_order_id:
+        raise HTTPException(status_code=404, detail="Transaction or order not found")
+
+    from backend.services.razorpay_client import get_razorpay_service
+    try:
+        get_razorpay_service()._client.utility.verify_payment_signature({
+            "razorpay_order_id": payment.razorpay_order_id,
+            "razorpay_payment_id": payment.razorpay_payment_id,
+            "razorpay_signature": payment.razorpay_signature,
+        })
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Payment signature verification failed: {exc}")
+
+    transaction.razorpay_payment_id = payment.razorpay_payment_id
+    transaction.status = "paid"
+    await db.commit()
+    return {"status": "paid", "transaction_id": transaction.id, "payment_id": payment.razorpay_payment_id}
 
 
 @router.post("/all", summary="Run all 5 demo scenarios")
